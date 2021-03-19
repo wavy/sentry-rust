@@ -1,6 +1,6 @@
 use sentry_types::protocol::v7::SessionStatus;
 
-use crate::protocol::{Event, Level};
+use crate::protocol::{Event, Level, Span, Transaction};
 use crate::types::Uuid;
 use crate::{Hub, Integration, IntoBreadcrumbs, Scope};
 
@@ -297,4 +297,24 @@ pub fn end_session() {
 /// using this function.
 pub fn end_session_with_status(status: SessionStatus) {
     Hub::with_active(|hub| hub.end_session_with_status(status))
+}
+
+/// Start and return a transaction.
+pub fn start_transaction<F>(f: F)
+where
+    F: FnOnce(&mut Transaction),
+{
+    Hub::with_active(|hub| {
+        hub.start_transaction(f);
+    });
+}
+
+/// Start and return a transaction.
+pub fn start_span<F>(f: F)
+where
+    F: FnOnce(&mut Span),
+{
+    Hub::with_active(|hub| {
+        hub.start_span(f);
+    });
 }

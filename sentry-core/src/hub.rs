@@ -446,7 +446,7 @@ impl Hub {
     }
 
     /// Start a new transaction.
-    pub fn start_transaction<T, F>(&self, f: F)
+    pub fn start_transaction<F>(&self, f: F)
     where
         F: FnOnce(&mut Transaction),
     {
@@ -477,7 +477,7 @@ impl Hub {
     }
 
     /// Start a new Span.
-    pub fn start_span<T, F>(&self, f: F)
+    pub fn start_span<F>(&self, f: F)
     where
         F: FnOnce(&mut Span),
     {
