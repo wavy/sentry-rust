@@ -1493,7 +1493,7 @@ pub struct Span {
     pub trace_id: Uuid,
     /// Determines the parent of this span, if any.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub parent_span_id: Option<String>,
+    pub parent_span_id: Option<Uuid>,
     /// Determines whether this span is generated in the same process as its parent, if any.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub same_process_as_parent: Option<bool>,

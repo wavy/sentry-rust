@@ -3,7 +3,7 @@ use std::collections::{HashMap, VecDeque};
 use std::fmt;
 use std::sync::{Arc, Mutex, PoisonError, RwLock};
 
-use crate::protocol::{Breadcrumb, Context, Event, Level, User, Value};
+use crate::protocol::{Breadcrumb, Context, Event, Level, User, Value, Transaction, Span};
 use crate::session::Session;
 use crate::Client;
 
@@ -44,6 +44,8 @@ pub struct Scope {
     pub(crate) contexts: Arc<HashMap<String, Context>>,
     pub(crate) event_processors: Arc<Vec<Arc<EventProcessor>>>,
     pub(crate) session: Arc<Mutex<Option<Session>>>,
+    pub(crate) tracing_transaction: Option<Arc<Mutex<Transaction<'static>>>>,
+    pub(crate) current_span: Option<Arc<Mutex<Span>>>,
 }
 
 impl fmt::Debug for Scope {
@@ -76,6 +78,8 @@ impl Default for Scope {
             contexts: Default::default(),
             event_processors: Default::default(),
             session: Default::default(),
+            tracing_transaction: None,
+            current_span: None,
         }
     }
 }

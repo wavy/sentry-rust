@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex, PoisonError, RwLock, TryLockError};
 use std::thread;
 use std::time::Duration;
 
-use crate::protocol::{Breadcrumb, Event, Level, SessionStatus};
+use crate::protocol::{Breadcrumb, Event, Level, SessionStatus, Span, Transaction};
 use crate::types::Uuid;
 use crate::{event_from_error, Integration, IntoBreadcrumbs, Scope, ScopeGuard};
 #[cfg(feature = "client")]
@@ -443,6 +443,68 @@ impl Hub {
                 }
             })
         }}
+    }
+
+    /// Start a new transaction.
+    pub fn start_transaction<T, F>(&self, f: F)
+    where
+        F: FnOnce(&mut Transaction),
+    {
+        self.with_scope(
+            |scope| {
+                let mut tx = Transaction::new();
+                let mut mutex = Mutex::new(tx);
+                scope.tracing_transaction = Some(Arc::new(mutex));
+            },
+            || {
+                self.with_current_scope_mut(|scope| {
+                    if let Some(mutex) = &scope.tracing_transaction.clone() {
+                        let mut transaction = mutex.lock().unwrap();
+                        f(&mut transaction);
+
+                        with_client_impl! {{
+                            self.inner.with(|stack| {
+                                let top = stack.top();
+                                if let Some(ref client) = top.client {
+                                    client.send_envelope(Envelope::from(transaction.clone()));
+                                }
+                            })
+                        }}
+                    }
+                });
+            },
+        )
+    }
+
+    /// Start a new Span.
+    pub fn start_span<T, F>(&self, f: F)
+    where
+        F: FnOnce(&mut Span),
+    {
+        self.with_scope(
+            |scope| {
+                let mut span = Span::new();
+                if let Some(old_span_mutex) = &scope.current_span.clone() {
+                    let old_span = old_span_mutex.lock().unwrap();
+                    span.parent_span_id = Some(old_span.span_id);
+                }
+                let mut mutex = Mutex::new(span);
+                scope.current_span = Some(Arc::new(mutex));
+            },
+            || {
+                self.with_current_scope_mut(|scope| {
+                    if let Some(mutex) = &scope.current_span.clone() {
+                        let mut span = mutex.lock().unwrap();
+                        f(&mut span);
+                        span.finish();
+                        if let Some(tx_mutex) = &scope.tracing_transaction.clone() {
+                            let mut tx = tx_mutex.lock().unwrap();
+                            tx.spans.push(span.clone());
+                        }
+                    }
+                });
+            },
+        )
     }
 
     #[cfg(feature = "client")]
